@@ -1,0 +1,61 @@
+name: Verify Express Book Reviews final assignment
+on:
+  push:
+    paths:
+      - 'final_project/**'
+      - '.github/workflows/verify-book-review.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run real application and capture real cURL evidence
+        working-directory: final_project
+        env:
+          PORT: '5000'
+          SESSION_SECRET: 'CI-only-session-secret-not-for-deployment'
+          JWT_SECRET: 'CI-only-jwt-secret-not-for-deployment'
+        run: bash capture_submission.sh
+      - name: Validate and display sanitized submissions
+        if: success()
+        working-directory: final_project
+        run: |
+          python3 - <<'PY'
+          import json, pathlib, re
+          folder = pathlib.Path('grading_outputs')
+          names = ['githubrepo','getallbooks','getbooksbyISBN','getbooksbyauthor','getbooksbytitle',
+                   'getbookreview','register','login','reviewadded','deletereview']
+          for name in names:
+              raw=(folder/name).read_text()
+              if name == 'githubrepo':
+                  result=json.loads(raw.split('\n',1)[1])
+                  assert result['fork'] and result['parent']['full_name']=='ibm-developer-skills-network/expressBookReviews'
+                  raw='$ curl -s https://api.github.com/repos/chinhdz102/expressBookReviews | jq \'{full_name, fork, parent: .parent.full_name}\'\n'+json.dumps({'full_name':result['full_name'],'fork':result['fork'],'parent':result['parent']['full_name']},indent=2)
+              if name == 'getallbooks':
+                  books=json.loads(raw.split('\n',1)[1])
+                  assert len(books)>=10
+              if name in ('register','login','reviewadded','deletereview'):
+                  assert 'success' in raw.lower(), f'{name} did not succeed'
+              raw=re.sub(r'("token"\s*:\s*")[^"]+',r'\1[REDACTED]',raw)
+              print(f'========== {name} ==========\n{raw}\n')
+          assert (folder/'axios_demo_output').read_text().count('Author Unknown:')==1
+          print('All 10 evidence files and 4 Axios retrievals were successfully generated.')
+          PY
+      - name: Save evidence files privately as a workflow artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: express-book-review-grading-evidence
+          path: final_project/grading_outputs/
+          retention-days: 7
