@@ -75,13 +75,61 @@ public_users.get('/review/:isbn', (req, res) => {
 // Task 11: Four Promise/async-await clients implemented with Axios.
 // These clients are called separately from the server route handlers.
 const baseURL = process.env.BOOKS_API_URL || 'http://127.0.0.1:5000';
-const getAllBooksAsync = async () => (await axios.get(baseURL + '/')).data;
-const getBookByISBNAsync = async isbn =>
-  (await axios.get(baseURL + '/isbn/' + encodeURIComponent(isbn))).data;
-const getBooksByAuthorPromise = author =>
-  axios.get(baseURL + '/author/' + encodeURIComponent(author)).then(response => response.data);
-const getBooksByTitlePromise = title =>
-  axios.get(baseURL + '/title/' + encodeURIComponent(title)).then(response => response.data);
+
+// Independent Axios clients for Coursera's four asynchronous tasks.
+// The Express routes above access the original JSON database directly;
+// the Axios clients below make real HTTP requests to those routes.
+async function getAllBooksAsync() {
+  try {
+    const response = await axios.get(`${baseURL}/`);
+    if (!response.data || Object.keys(response.data).length === 0) {
+      throw new Error('404 Not Found: No books available.');
+    }
+    return response.data;
+  } catch (error) {
+    console.error('Error retrieving all books:', error.response?.data || error.message);
+    throw error;
+  }
+}
+
+async function getBookByISBNAsync(isbn) {
+  try {
+    const response = await axios.get(`${baseURL}/isbn/${encodeURIComponent(isbn)}`);
+    if (!response.data || Object.keys(response.data).length === 0) {
+      throw new Error('404 Not Found: No matching ISBN.');
+    }
+    return response.data;
+  } catch (error) {
+    console.error('Error retrieving book by ISBN:', error.response?.data || error.message);
+    throw error;
+  }
+}
+
+async function getBooksByAuthorPromise(author) {
+  try {
+    const response = await axios.get(`${baseURL}/author/${encodeURIComponent(author)}`);
+    if (!response.data || Object.keys(response.data).length === 0) {
+      throw new Error('404 Not Found: No books for this author.');
+    }
+    return response.data;
+  } catch (error) {
+    console.error('Error retrieving books by author:', error.response?.data || error.message);
+    throw error;
+  }
+}
+
+async function getBooksByTitlePromise(title) {
+  try {
+    const response = await axios.get(`${baseURL}/title/${encodeURIComponent(title)}`);
+    if (!response.data || Object.keys(response.data).length === 0) {
+      throw new Error('404 Not Found: No books with this title.');
+    }
+    return response.data;
+  } catch (error) {
+    console.error('Error retrieving books by title:', error.response?.data || error.message);
+    throw error;
+  }
+}
 
 module.exports = {
   general: public_users,
